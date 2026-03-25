@@ -14,7 +14,7 @@
 |---|---|
 | Organism | Rat gut microbiome |
 | Samples | 108 total |
-| Subjects | 6 rats |
+| Subjects | 36 rats |
 | Timepoints | Day 0, Day 28, Day 56 |
 | Treatment groups | MSC, EV, Combo, Positive control, Negative control, Normal |
 | Sequencing | Paired-end Illumina, 251 bp reads |
