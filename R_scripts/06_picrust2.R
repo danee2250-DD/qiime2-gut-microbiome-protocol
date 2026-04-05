@@ -317,21 +317,21 @@ p_pathway_heatmap <- pheatmap(
   as.matrix(pathway_heatmap_mat),
   scale = "row",
   cluster_rows = TRUE,
-  cluster_cols = TRUE,
+  cluster_cols = FALSE,
   color = colorRampPalette(c("#2166AC","white","#B2182B"))(100),
   main = "Top 20 Predicted MetaCyc Pathways\nRelative Abundance Heatmap",
   fontsize = 10,
   fontsize_row = 8,
   fontsize_col = 10,
   border_color = "white",
-  angle_col = 45,
-  silent = TRUE
+  angle_col = "45",
+  
 )
 
 png(file.path(picrust_plots, "pathway_heatmap.png"),
     width=12, height=9, units="in", res=300)
 grid::grid.newpage()
-grid::grid.draw(p_pathway_heatmap$gtable)
+draw(p_pathway_heatmap)
 dev.off()
 cat("6/9 Pathway heatmap saved\n")
 
@@ -533,7 +533,7 @@ ko_level2_group <- ko_level2_rel %>%
 
 # KEGG category colors
 kegg_cat_colors <- c(
-  "Carbohydrate metabolism"="                    #E41A1C",
+  "Carbohydrate metabolism"="#E41A1C",
   "Amino acid metabolism"="#377EB8",
   "Energy metabolism"="#4DAF4A",
   "Lipid metabolism"="#984EA3",
@@ -584,16 +584,16 @@ kegg_heatmap_mat <- ko_level2_group %>%
 
 p_kegg_heatmap <- pheatmap(
   as.matrix(kegg_heatmap_mat),
-  scale="row", cluster_rows=TRUE, cluster_cols=TRUE,
+  scale="row", cluster_rows=TRUE, cluster_cols=FALSE,
   color=colorRampPalette(c("#2166AC","white","#B2182B"))(100),
   main="Predicted KEGG Functional Categories\nHierarchical Clustering Heatmap",
   fontsize=10, fontsize_row=8, fontsize_col=10,
-  border_color="white", angle_col=45, silent=TRUE
+  border_color="white", angle_col="45"
 )
 
 png(file.path(picrust_plots, "kegg_level2_heatmap.png"),
     width=12, height=8, units="in", res=300)
-grid::grid.newpage(); grid::grid.draw(p_kegg_heatmap$gtable)
+draw(p_kegg_heatmap)
 dev.off()
 cat("8/9 KEGG Level 2 plots saved\n")
 
@@ -717,19 +717,19 @@ sig_marks <- ifelse(pval_matrix < 0.001, "***",
 
 p_spearman <- pheatmap(
   corr_matrix,
-  cluster_rows=TRUE, cluster_cols=TRUE,
+  cluster_rows=TRUE, cluster_cols=FALSE,
   color=colorRampPalette(c("#2166AC","white","#B2182B"))(100),
   breaks=seq(-1, 1, length.out=101),
   display_numbers=sig_marks,
   number_color="black", fontsize_number=7,
   main="Spearman Correlation — Top Genera vs Predicted Pathways\n(* p<0.05, ** p<0.01, *** p<0.001)",
   fontsize=9, fontsize_row=8, fontsize_col=7.5,
-  border_color="white", angle_col=45, silent=TRUE
+  border_color="white", angle_col="45"
 )
 
 png(file.path(picrust_plots, "spearman_taxa_pathway.png"),
     width=14, height=8, units="in", res=300)
-grid::grid.newpage(); grid::grid.draw(p_spearman$gtable)
+draw(p_spearman)
 dev.off()
 cat("9/9 Spearman correlation saved\n")
 

@@ -281,7 +281,8 @@ ggsave(file.path(plot_path, "fb_ratio_longitudinal.png"),
 cat("F:B ratio longitudinal plot saved\n")
 
 # ============================================
-# GENUS LONGITUDINAL — TOP 6 GENERA
+# ============================================
+# GENUS LONGITUDINAL — TOP 5, 6, 10 GENERA
 # ============================================
 
 cat("Generating genus longitudinal plots...\n")
@@ -305,59 +306,150 @@ genus_long <- psmelt(ps_genus_rel) %>%
                          levels = c("Day 0","Day 28","Day 56"))
   )
 
-top6_genera <- genus_long %>%
-  group_by(Genus) %>%
-  summarise(mean_abund = mean(Abundance)) %>%
-  arrange(desc(mean_abund)) %>%
-  slice_head(n = 6) %>%
-  pull(Genus)
+# ── Plot 1: Faceted by GROUP, lines = genera ─────────────
+plot_genus_by_group <- function(n_genera, nrow_facet) {
 
-genus_summary <- genus_long %>%
-  filter(Genus %in% top6_genera) %>%
-  group_by(Genus, group, timepoints) %>%
-  summarise(
-    mean_abund = mean(Abundance, na.rm = TRUE),
-    se_abund   = sd(Abundance, na.rm = TRUE) / sqrt(n()),
-    .groups    = "drop"
+  top_genera <- genus_long %>%
+    group_by(Genus) %>%
+    summarise(mean_abund = mean(Abundance)) %>%
+    arrange(desc(mean_abund)) %>%
+    slice_head(n = n_genera) %>%
+    pull(Genus)
+
+  genus_sum <- genus_long %>%
+    filter(Genus %in% top_genera) %>%
+    group_by(Genus, group, timepoints) %>%
+    summarise(mean_abund = mean(Abundance, na.rm = TRUE),
+              .groups = "drop") %>%
+    mutate(
+      Genus = factor(Genus, levels = top_genera),
+      group = factor(group,
+                     levels = c("MSC","EV","Combo",
+                                "Positive","Negative","Normal"))
+    )
+
+  genus_line_colors <- setNames(
+    colorRampPalette(c(
+      "#E41A1C","#377EB8","#4DAF4A","#984EA3","#FF7F00",
+      "#A65628","#F781BF","#66C2A5","#FC8D62","#8DA0CB"
+    ))(n_genera),
+    top_genera
   )
 
-p_genus_long <- ggplot(genus_summary,
-                        aes(x = timepoints,
-                            y = mean_abund,
-                            color = group,
-                            group = group)) +
-  geom_line(linewidth = 1.1) +
-  geom_point(aes(shape = group),
-             size = 3) +
-  geom_errorbar(
-    aes(ymin = mean_abund - se_abund,
-        ymax = mean_abund + se_abund),
-    width = 0.15, linewidth = 0.6
-  ) +
-  scale_color_manual(values = group_colors, name = "Treatment") +
-  scale_shape_manual(values = group_shapes, name = "Treatment") +
-  scale_y_continuous(labels = scales::percent) +
-  facet_wrap(~ Genus, scales = "free_y", nrow = 2) +
-  labs(
-    title = "Top 6 Genera — Longitudinal Abundance Trends",
-    x     = "Timepoint",
-    y     = "Relative Abundance"
-  ) +
-  theme_bw() +
-  theme(
-    plot.title       = element_text(hjust = 0.5,
-                                     face = "bold", size = 13),
-    axis.text.x      = element_text(angle = 45, hjust = 1),
-    strip.background = element_rect(fill = "grey90"),
-    strip.text       = element_text(face = "bold.italic", size = 9),
-    legend.position  = "right",
-    legend.title     = element_text(face = "bold", size = 10),
-    panel.grid.minor = element_blank()
-  )
+  ggplot(genus_sum,
+         aes(x = timepoints, y = mean_abund,
+             color = Genus, group = Genus)) +
+    geom_line(linewidth = 1.1) +
+    geom_point(size = 3, shape = 16) +
+    scale_color_manual(values = genus_line_colors, name = "Genus") +
+    scale_y_continuous(labels = scales::percent,
+                       limits = c(0, NA)) +
+    facet_wrap(~ group, nrow = nrow_facet, scales = "fixed") +
+    labs(
+      title = paste0("Top ", n_genera,
+                     " Genera — Longitudinal Change by Treatment Group"),
+      x = "Timepoint",
+      y = "Mean Relative Abundance"
+    ) +
+    theme_bw() +
+    theme(
+      plot.title       = element_text(hjust = 0.5,
+                                      face = "bold", size = 13),
+      axis.text.x      = element_text(angle = 45, hjust = 1),
+      strip.background = element_rect(fill = "grey90"),
+      strip.text       = element_text(face = "bold", size = 10),
+      legend.position  = "right",
+      legend.title     = element_text(face = "bold", size = 10),
+      legend.text      = element_text(face = "italic", size = 8.5),
+      panel.grid.minor = element_blank()
+    )
+}
 
-ggsave(file.path(plot_path, "genus_longitudinal_top6.png"),
-       p_genus_long, width = 14, height = 8, dpi = 300)
-cat("Genus longitudinal plot saved\n")
+# ── Plot 2: Faceted by GENUS, lines = treatment groups ───
+plot_genus_by_genus <- function(n_genera, nrow_facet) {
+
+  top_genera <- genus_long %>%
+    group_by(Genus) %>%
+    summarise(mean_abund = mean(Abundance)) %>%
+    arrange(desc(mean_abund)) %>%
+    slice_head(n = n_genera) %>%
+    pull(Genus)
+
+  genus_sum <- genus_long %>%
+    filter(Genus %in% top_genera) %>%
+    group_by(Genus, group, timepoints) %>%
+    summarise(mean_abund = mean(Abundance, na.rm = TRUE),
+              .groups = "drop") %>%
+    mutate(
+      Genus = factor(Genus, levels = top_genera),
+      group = factor(group,
+                     levels = c("MSC","EV","Combo",
+                                "Positive","Negative","Normal"))
+    )
+
+  ggplot(genus_sum,
+         aes(x = timepoints, y = mean_abund,
+             color = group, group = group)) +
+    geom_line(linewidth = 1.1) +
+    geom_point(size = 3, shape = 16) +
+    scale_color_manual(values = group_colors, name = "Treatment") +
+    scale_y_continuous(labels = scales::percent) +
+    facet_wrap(~ Genus, nrow = nrow_facet,
+               scales = "free_y",
+               labeller = label_wrap_gen(width = 20)) +
+    labs(
+      title = paste0("Top ", n_genera,
+                     " Genera — Longitudinal Abundance Trends"),
+      x = "Timepoint",
+      y = "Relative Abundance"
+    ) +
+    theme_bw() +
+    theme(
+      plot.title       = element_text(hjust = 0.5,
+                                      face = "bold", size = 13),
+      axis.text.x      = element_text(angle = 45, hjust = 1),
+      strip.background = element_rect(fill = "grey90"),
+      strip.text       = element_text(face = "bold.italic", size = 9),
+      legend.position  = "right",
+      legend.title     = element_text(face = "bold", size = 10),
+      legend.text      = element_text(size = 9),
+      panel.grid.minor = element_blank()
+    )
+}
+
+# ── Generate all 6 plots ─────────────────────────────────
+
+# Style 1: Faceted by GROUP
+p_grp_top5 <- plot_genus_by_group(n_genera = 5, nrow_facet = 1)
+ggsave(file.path(plot_path, "genus_longitudinal_top5_bygroup.png"),
+       p_grp_top5, width = 18, height = 5, dpi = 300, bg = "white")
+cat("By-group Top 5 saved\n")
+
+p_grp_top6 <- plot_genus_by_group(n_genera = 6, nrow_facet = 2)
+ggsave(file.path(plot_path, "genus_longitudinal_top6_bygroup.png"),
+       p_grp_top6, width = 14, height = 8, dpi = 300, bg = "white")
+cat("By-group Top 6 saved\n")
+
+p_grp_top10 <- plot_genus_by_group(n_genera = 10, nrow_facet = 2)
+ggsave(file.path(plot_path, "genus_longitudinal_top10_bygroup.png"),
+       p_grp_top10, width = 18, height = 9, dpi = 300, bg = "white")
+cat("By-group Top 10 saved\n")
+
+# Style 2: Faceted by GENUS
+p_gen_top5 <- plot_genus_by_genus(n_genera = 5, nrow_facet = 1)
+ggsave(file.path(plot_path, "genus_longitudinal_top5_bygenus.png"),
+       p_gen_top5, width = 18, height = 5, dpi = 300, bg = "white")
+cat("By-genus Top 5 saved\n")
+
+p_gen_top6 <- plot_genus_by_genus(n_genera = 6, nrow_facet = 2)
+ggsave(file.path(plot_path, "genus_longitudinal_top6_bygenus.png"),
+       p_gen_top6, width = 14, height = 8, dpi = 300, bg = "white")
+cat("By-genus Top 6 saved\n")
+
+p_gen_top10 <- plot_genus_by_genus(n_genera = 10, nrow_facet = 2)
+ggsave(file.path(plot_path, "genus_longitudinal_top10_bygenus.png"),
+       p_gen_top10, width = 20, height = 9, dpi = 300, bg = "white")
+cat("By-genus Top 10 saved\n")
 
 # ============================================
 # SAVE DATA CSVs
@@ -367,6 +459,17 @@ write.csv(fb_long,
           file.path(plot_path, "fb_ratio_data.csv"),
           row.names = FALSE)
 
+genus_summary <- genus_long %>%
+  filter(Genus %in% (genus_long %>%
+    group_by(Genus) %>%
+    summarise(mean_abund = mean(Abundance)) %>%
+    arrange(desc(mean_abund)) %>%
+    slice_head(n = 10) %>%
+    pull(Genus))) %>%
+  group_by(Genus, group, timepoints) %>%
+  summarise(mean_abund = mean(Abundance, na.rm = TRUE),
+            .groups = "drop")
+
 write.csv(genus_summary,
           file.path(plot_path, "genus_abundance_longitudinal.csv"),
           row.names = FALSE)
@@ -374,4 +477,3 @@ write.csv(genus_summary,
 cat("\n=== LONGITUDINAL ANALYSIS COMPLETE ===\n")
 cat("Plots saved to:", plot_path, "\n")
 cat("Files:", length(list.files(plot_path)), "\n")
-

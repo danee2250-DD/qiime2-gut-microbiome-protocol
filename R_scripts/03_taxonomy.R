@@ -287,21 +287,21 @@ p_genus_heatmap <- pheatmap(
   as.matrix(genus_heatmap_mat),
   scale        = "row",
   cluster_rows = TRUE,
-  cluster_cols = TRUE,
+  cluster_cols = FALSE,
   color = colorRampPalette(c("#2166AC","white","#B2182B"))(100),
   main         = "Top 15 Genera — Relative Abundance Heatmap",
   fontsize      = 10,
   fontsize_row  = 8,
   fontsize_col  = 10,
   border_color  = "white",
-  angle_col     = 45,
-  silent        = TRUE
+  angle_col     = "45"
+  
 )
 
 png(file.path(plot_path, "genus_heatmap.png"),
     width = 12, height = 9, units = "in", res = 300)
-grid::grid.newpage()
-grid::grid.draw(p_genus_heatmap$gtable)
+
+draw(p_genus_heatmap)
 dev.off()
 cat("5/7 Genus heatmap saved\n")
 
