@@ -1,16 +1,25 @@
 # ============================================
-# 01_alpha_diversity.R
+# 01_alpha_diversity.R  (CORRECTED)
 # Alpha Diversity Analysis
-# Rat Gut Microbiome Study — 16S rRNA Analysis
+# Rat Gut Microbiome Study - 16S rRNA Analysis
 # Author: Daneesha
-# Last Updated: April 2026
+# ============================================
+# CHANGE LOG (vs original):
+#  * Plot Kruskal-Wallis subtitle p-values are now READ BACK from the
+#    saved kruskal_wallis_results.csv instead of being recomputed and
+#    rounded inline. This guarantees the plot and the CSV can never
+#    disagree (previously the plot showed Shannon Day 28 p=0.049 while
+#    the CSV held p=0.051 - a stale-render mismatch).
+#  * Significance star is decided on the true CSV value, not a pre-
+#    rounded one, so a value like 0.051 is correctly NOT starred.
+#  * Removed em dashes from titles.
 # ============================================
 
 # Run 00_setup.R first
 # source("00_setup.R")
 
-alpha_path <- file.path(data_path, "alpha")
-plot_path  <- file.path(plots_path, "alpha_diversity")
+alpha_path <- file.path(data_dir, "alpha")
+plot_path  <- file.path(plots_dir, "alpha_diversity")
 
 faith_pd <- read.table(
   file.path(alpha_path, "faith_pd/alpha-diversity.tsv"),
@@ -87,8 +96,7 @@ for (m in metrics) {
     ) %>%
     mutate(metric = metric_label)
 
-  # Wilcoxon within each group across timepoints
-  # ALL pairs including ns
+  # Wilcoxon within each group across timepoints (ALL pairs incl ns)
   wilcox_results <- alpha_df %>%
     group_by(group) %>%
     wilcox_test(
@@ -109,7 +117,10 @@ for (m in metrics) {
 
 cat("Statistical tests complete\n")
 
-# Save stats CSVs
+# ============================================
+# SAVE STATS CSVs  (written BEFORE plotting so plots can read them back)
+# ============================================
+
 kw_all <- bind_rows(lapply(stats_results, function(x) x$kw))
 write.csv(kw_all,
           file.path(plot_path, "kruskal_wallis_results.csv"),
@@ -120,11 +131,45 @@ write.csv(dunn_all,
           file.path(plot_path, "dunn_posthoc_results.csv"),
           row.names = FALSE)
 
+wilcox_all <- bind_rows(lapply(stats_results, function(x) x$wilcox))
+wilcox_all <- wilcox_all[, !sapply(wilcox_all, is.list)]
+write.csv(wilcox_all,
+          file.path(plot_path, "wilcoxon_results.csv"),
+          row.names = FALSE)
+
+# LME summary table (fixed effects per metric)
+lme_all <- bind_rows(lapply(names(stats_results), function(mc) {
+  mod <- stats_results[[mc]]$lme
+  if (is.null(mod)) return(NULL)
+  tt <- summary(mod)$tTable
+  data.frame(
+    metric = mc,
+    term   = rownames(tt),
+    tt,
+    row.names = NULL,
+    check.names = FALSE
+  )
+}))
+if (nrow(lme_all) > 0) {
+  write.csv(lme_all,
+            file.path(plot_path, "lme_results.csv"),
+            row.names = FALSE)
+}
+
+# ------------------------------------------------------------
+# LOAD THE AUTHORITATIVE KW CSV BACK IN.
+# The plot reads its subtitle p-values from THIS, never recomputes.
+# ------------------------------------------------------------
+kw_authoritative <- read.csv(
+  file.path(plot_path, "kruskal_wallis_results.csv"),
+  stringsAsFactors = FALSE
+)
+
 # ============================================
 # PLOT FUNCTION
-# Faceted by GROUP — x-axis = timepoints
-# Brackets = Wilcoxon within group (ALL shown)
-# Subtitle = KW p-values between groups
+# Faceted by GROUP - x-axis = timepoints
+# Brackets  = Wilcoxon within group (ALL shown)
+# Subtitle  = KW p-values between groups (READ FROM CSV)
 # ============================================
 
 plot_alpha <- function(metric_col, metric_label,
@@ -140,12 +185,16 @@ plot_alpha <- function(metric_col, metric_label,
                           levels = c("Day 0","Day 28","Day 56"))
     )
 
-  # KW p-values for subtitle
-  kw <- stats_results[[metric_col]]$kw
+  # --- KW p-values for subtitle: READ FROM CSV (authoritative) ---
+  kw <- kw_authoritative[kw_authoritative$.y. == metric_col, ]
+
   make_kw_label <- function(tp) {
-    p   <- round(kw$p[kw$timepoints == tp], 3)
-    sig <- ifelse(p < 0.05, "*", "")
-    paste0(tp, ": p=", p, sig)
+    prow <- kw$p[kw$timepoints == tp]
+    if (length(prow) == 0 || is.na(prow)) return(paste0(tp, ": p=NA"))
+    p_raw  <- as.numeric(prow)
+    p_disp <- formatC(p_raw, format = "g", digits = 3)
+    sig    <- ifelse(p_raw < 0.05, "*", "")   # star on TRUE value
+    paste0(tp, ": p=", p_disp, sig)
   }
   kw_subtitle <- paste(
     make_kw_label("Day 0"),
@@ -192,8 +241,7 @@ plot_alpha <- function(metric_col, metric_label,
     )
 
   if (show_stats) {
-    wilcox   <- stats_results[[metric_col]]$wilcox
-    # Show ALL brackets including ns
+    wilcox <- stats_results[[metric_col]]$wilcox
     if (nrow(wilcox) > 0) {
       p <- p + stat_pvalue_manual(
         wilcox,
@@ -228,7 +276,7 @@ for (i in seq_along(metrics)) {
   )
 }
 
-# Combined figure
+# Combined figure (Shannon / Faith / Observed)
 p_shannon <- plot_alpha("shannon_entropy",
                          "Shannon Diversity Index", TRUE)
 p_faith   <- plot_alpha("faith_pd",
@@ -238,7 +286,7 @@ p_obs     <- plot_alpha("observed_features",
 
 p_combined <- p_shannon / p_faith / p_obs +
   plot_annotation(
-    title = "Alpha Diversity — All Treatment Groups Across Timepoints",
+    title = "Alpha Diversity: All Treatment Groups Across Timepoints",
     theme = theme(
       plot.title = element_text(hjust = 0.5, face = "bold", size = 14)
     )
